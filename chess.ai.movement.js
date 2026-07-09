@@ -1,36 +1,36 @@
-/* === chess.ai.movement.js — AI + Human movement tracker === */
+/* === chess.ai.movement.js — AI + player movement tracker === */
 
 (function () {
 
   /* STORAGE */
   const aiMoves = [];
-  const humanMoves = [];
+  const playerMoves = [];
 
   /* EXPORT TRACKER */
   window.moveTracker = {
     aiMoves,
-    humanMoves,
+    playerMoves,
 
     lastAiMove: () => aiMoves[aiMoves.length - 1] || null,
-    lastHumanMove: () => humanMoves[humanMoves.length - 1] || null,
+    lastplayerMove: () => playerMoves[playerMoves.length - 1] || null,
 
     clear: () => {
       aiMoves.length = 0;
-      humanMoves.length = 0;
+      playerMoves.length = 0;
     },
 
-    /* HUMAN MOVE LEGALITY CHECK BASED ON AI MOVE */
-    isHumanMoveLegalResponse(humanMove) {
+    /* player MOVE LEGALITY CHECK BASED ON AI MOVE */
+    isplayerMoveLegalResponse(playerMove) {
       const lastAi = aiMoves[aiMoves.length - 1];
       if (!lastAi) return true; // no AI move yet → always legal
 
       // BASIC RULE YOU REQUESTED:
-      // Human move must NOT repeat AI's last move coordinates
+      // player move must NOT repeat AI's last move coordinates
       if (
-        humanMove.fromX === lastAi.fromX &&
-        humanMove.fromY === lastAi.fromY &&
-        humanMove.toX === lastAi.toX &&
-        humanMove.toY === lastAi.toY
+        playerMove.fromX === lastAi.fromX &&
+        playerMove.fromY === lastAi.fromY &&
+        playerMove.toX === lastAi.toX &&
+        playerMove.toY === lastAi.toY
       ) {
         return false;
       }
@@ -40,7 +40,7 @@
     }
   };
 
-  /* === WRAP applyMove TO TRACK AI + HUMAN === */
+  /* === WRAP applyMove TO TRACK AI + player === */
   const originalApplyMove = window.applyMove;
 
   window.applyMove = function (move, options = {}) {
@@ -56,7 +56,7 @@
       (playerSide === "white" && !sideWhite) ||
       (playerSide === "black" && sideWhite);
 
-    const humanMoved =
+    const playerMoved =
       (playerSide === "white" && sideWhite) ||
       (playerSide === "black" && !sideWhite);
 
@@ -64,8 +64,8 @@
       window.moveTracker.aiMoves.push(move);
     }
 
-    if (humanMoved) {
-      window.moveTracker.humanMoves.push(move);
+    if (playerMoved) {
+      window.moveTracker.playerMoves.push(move);
     }
   };
 

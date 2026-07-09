@@ -17,7 +17,7 @@ function setStartingBoard() {
   ];
 }
 
-/* Flip board based on human side */
+/* Flip board based on player side */
 function updateBoardOrientation() {
   window.flipBoard = window.playerSide === "black";
   renderBoard();

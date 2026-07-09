@@ -398,14 +398,14 @@ function generateLegalMovesForSquare(x, y) {
 
         /* ============================================================
            TRACKER PATCH:
-           Human move must be legal response to AI move
+           player move must be legal response to AI move
            ============================================================ */
-        const humanIsMoving =
+        const playerIsMoving =
           (window.playerSide === "white" && savedWTM === true) ||
           (window.playerSide === "black" && savedWTM === false);
 
-        if (humanIsMoving) {
-          const isLegalResponse = window.moveTracker.isHumanMoveLegalResponse(m);
+        if (playerIsMoving) {
+          const isLegalResponse = window.moveTracker.isplayerMoveLegalResponse(m);
           if (!isLegalResponse) {
             // skip this move
             board = savedBoard;
@@ -556,7 +556,7 @@ function finalizePromotion(type) {
   applyMove(move, { promoteTo: type });
 }
 
-/* === APPLY MOVE (HUMAN OR AI) === */
+/* === APPLY MOVE (player OR AI) === */
 function applyMove(move, options = {}) {
   const { fromX, fromY, toX, toY, special } = move;
 
