@@ -295,7 +295,6 @@ body {
   display: none;
 }
 
-/* GAMEOVER OVERLAY */
 #gameover-overlay {
   display: flex;
   align-items: center;
@@ -527,7 +526,6 @@ input[type="color"] {
     height: 56px;
   }
 }
-
 
 #gameover-overlay,
 #promotion-overlay {
