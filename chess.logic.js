@@ -530,7 +530,6 @@ function applyMoveInternal(move, options = {}) {
   }
 }
 
-
 /* === PROMOTION OVERLAY === */
 function openPromotionOverlay(isWhite) {
   promotionChoicesEl.innerHTML = "";
@@ -565,6 +564,7 @@ function finalizePromotion(type) {
 
   applyMove(move, { promoteTo: type });
 }
+
 /* === APPLY MOVE (player OR AI) === */
 function applyMove(move, options = {}) {
   const { fromX, fromY, toX, toY, special } = move;
@@ -666,7 +666,6 @@ function applyMove(move, options = {}) {
     return;
   }
 
-  // FINALIZED CAPTURE → UPDATE CAPTURE PANEL
   if (captured) {
     window.registerCapture(piece, captured);
   }
@@ -692,10 +691,24 @@ function applyMove(move, options = {}) {
 
   renderBoard();
 
-  // FIX: ALWAYS STORE VALID SAN + VALID FEN
   const fen = window.boardToFEN();
-  window.addMoveToHistory(san, fen);
+
+  // store full history for undo/redo + SAN/FEN for log + move-log UI
+  window.moveHistory.push({
+    prevBoard,
+    prevCastling,
+    prevEP,
+    whiteToMoveBefore: prevWTM,
+    move,
+    captured,
+    san,
+    fen
+  });
+
+  // update move-log UI (moves.js uses .san and .fen)
   window.renderMoveLog();
+  window.currentHistoryIndex = null;
+  window.highlightMoveInLog(null);
 
   const ended = checkGameEnd();
   if (ended) return;
@@ -703,9 +716,6 @@ function applyMove(move, options = {}) {
   sendFenToEngine();
   requestAiMoveIfNeeded();
 }
-
-
-
 
 /* === LOGGING === */
 function logMove(move, piece, captured) {
@@ -760,7 +770,6 @@ function checkGameEnd() {
 
   return false;
 }
-
 
 /* === EXPORT GLOBALS === */
 window.squareAttacked = squareAttacked;
