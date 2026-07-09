@@ -1,0 +1,11 @@
+{
+  "boardColors": {
+    "light": "#d1f6ff",
+    "dark": "#fc2eff"
+  },
+  "tintEnabled": false,
+  "depthEnabled": true,
+  "depthIntensity": 0.15,
+  "depthWhiteColor": "#c670d2",
+  "depthBlackColor": "#9ae77e"
+}

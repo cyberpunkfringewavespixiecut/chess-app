@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chess</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <!-- MAIN LAYOUT -->
+    <main class="app-main">
+
+      <!-- LEFT: BOARD -->
+      <section class="left-panel">
+        <div class="board-card">
+          <div class="board-header">
+            <button id="flip-board-btn" class="holo-btn">Flip</button>
+          </div>
+          <div id="board" class="board-grid"></div>
+        </div>
+      </section>
+
+      <!-- RIGHT: CONTROLS + LOG + CAPTURED -->
+      <section class="right-panel">
+
+        <!-- Controls -->
+        <div class="control-card">
+          <div class="control-row">
+            <button id="undo-btn" class="holo-btn">Undo</button>
+            <button id="redo-btn" class="holo-btn">Redo</button>
+          </div>
+        </div>
+
+        <!-- Move Log + Captured -->
+        <div class="log-card">
+          <div class="panel-title">Moves</div>
+          <ul id="move-log" class="move-log"></ul>
+
+          <div class="captured-row">
+            <div class="captured-panel">
+              <div class="panel-title">Black</div>
+              <div id="captured-player" class="captured-list"></div>
+            </div>
+            <div class="captured-panel">
+              <div class="panel-title">White</div>
+              <div id="captured-ai" class="captured-list"></div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Floating buttons -->
+    <div class="floating-buttons">
+      <button id="ai-btn" class="floating-btn ai-btn">AI</button>
+      <button id="theme-btn" class="floating-btn theme-btn">Theme</button>
+    </div>
+
+    <!-- GAMEOVER OVERLAY -->
+    <div id="gameover-overlay" class="overlay hidden">
+      <div class="overlay-content modal-content">
+        <div class="overlay-header center-header">
+          <div id="gameover-text" class="overlay-title-main"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROMOTION OVERLAY -->
+    <div id="promotion-overlay" class="overlay hidden">
+      <div class="overlay-content modal-content">
+        <div class="overlay-header center-header">
+          <div class="overlay-title-main">Promote Pawn</div>
+        </div>
+        <div id="promotion-choices" class="promotion-choices"></div>
+      </div>
+    </div>
+
+    <!-- AI SIDEBAR -->
+    <div id="ai-sidebar" class="sidebar hidden">
+      <div class="sidebar-content">
+        <div class="sidebar-header">
+          <div class="sidebar-title">AI Settings</div>
+          <button id="close-ai-sidebar" class="sidebar-close">✕</button>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Player Side</div>
+          <label class="radio-label">
+            <input type="radio" id="ai-side-white" name="ai-side" />
+            <span>White</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" id="ai-side-black" name="ai-side" />
+            <span>Black</span>
+          </label>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">AI Difficulty</div>
+          <div class="ai-level-row">
+            <button class="ai-level-btn" data-level="beginner">Beginner</button>
+            <button class="ai-level-btn" data-level="medium">Medium</button>
+            <button class="ai-level-btn" data-level="hard">Hard</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- THEME SIDEBAR -->
+    <div id="theme-sidebar" class="sidebar hidden">
+      <div class="sidebar-content">
+        <div class="sidebar-header">
+          <div class="sidebar-title">Theme</div>
+          <button id="close-theme-sidebar" class="sidebar-close">✕</button>
+        </div>
+
+        <!-- Depth -->
+        <div class="sidebar-section">
+          <div class="sidebar-label-row">
+            <label class="checkbox-label inline-checkbox">
+              <input type="checkbox" id="depth-enable" />
+              <span>Depth</span>
+            </label>
+          </div>
+
+          <input type="range" id="depth-slider" min="0" max="1" step="0.01" />
+
+          <label class="sidebar-label">Depth White Color</label>
+          <input type="color" id="depth-white-color" />
+
+          <label class="sidebar-label">Depth Black Color</label>
+          <input type="color" id="depth-black-color" />
+        </div>
+
+        <!-- Tint -->
+        <div class="sidebar-section">
+          <label class="checkbox-label">
+            <input type="checkbox" id="tint-toggle" />
+            <span>Tint</span>
+          </label>
+        </div>
+
+        <!-- Board Colors -->
+        <div class="sidebar-section">
+          <div class="sidebar-label">Board Colors</div>
+          <input type="color" id="board-light-color" />
+          <input type="color" id="board-dark-color" />
+        </div>
+
+        <!-- Theme Save/Load -->
+        <div class="sidebar-section">
+          <div class="control-row">
+            <button id="download-theme" class="holo-btn">Save Theme</button>
+            <button id="open-load-theme" class="holo-btn">Load Theme</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOAD THEME PANEL -->
+    <div id="load-theme-panel" class="theme-panel hidden">
+      <div class="theme-panel-content">
+        <h3 class="theme-panel-title">Load Theme</h3>
+        <select id="theme-listbox" class="theme-listbox" size="8"></select>
+        <div class="theme-panel-buttons">
+          <button id="apply-theme-btn" class="holo-btn primary">Apply</button>
+          <button id="close-load-theme-btn" class="holo-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JS MODULES -->
+  <script src="sound.js"></script>
+  <script src="board.js"></script>
+  <script src="chess.logic.js"></script>
+  <script src="chess.ai.js"></script>
+  <script src="chess.ai.movement.js"></script>
+  <script src="movement.js"></script>
+  <script src="undo.redo.js"></script>
+  <script src="flip.js"></script>
+  <script src="ui.ai.js"></script>
+  <script src="ui.theme.js"></script>
+  <script src="capture.js"></script>
+
+</body>
+</html>
