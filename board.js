@@ -35,14 +35,18 @@ window.redoStack = [];
 
 window.files = ["a","b","c","d","e","f","g","h"];
 
+/* CAPTURED PIECES STATE */
+window.capturedPlayerPieces = []; // pieces captured BY the human (white)
+window.capturedAiPieces = [];     // pieces captured BY the AI (black)
+
 /* PLAYER SIDE + AI LEVEL */
 window.playerSide = "white";
 window.aiLevel = "medium";
 
 /* DOM REFERENCES */
 window.boardEl = document.getElementById("board");
-window.capturedPlayerEl = document.getElementById("captured-player");
-window.capturedAiEl = document.getElementById("captured-ai");
+window.capturedPlayerEl = document.getElementById("captured-player"); // under BLACK
+window.capturedAiEl = document.getElementById("captured-ai");         // under WHITE
 window.moveLogEl = document.getElementById("move-log");
 
 /* OVERLAY ELEMENTS */
@@ -80,6 +84,54 @@ window.indexToCoord = (x, y) => {
 window.uiToBoard = (x, y) => window.flipBoard ? { x: 7 - x, y: 7 - y } : { x, y };
 window.boardToUI = (x, y) => window.flipBoard ? { x: 7 - x, y: 7 - y } : { x, y };
 
+/* CAPTURE PANEL RENDERING — FIXED ORDER */
+window.renderCapturedPanels = function() {
+  if (!window.capturedPlayerEl || !window.capturedAiEl) return;
+
+  const pieceMap = {
+    p: "pawn",
+    r: "rook",
+    n: "knight",
+    b: "bishop",
+    q: "queen",
+    k: "king"
+  };
+
+  const pieceToIcon = p => {
+    const isWhite = p === p.toUpperCase();
+    const type = p.toLowerCase();
+    const fullName = pieceMap[type];
+    const side = isWhite ? "white" : "black";
+    return `chess-data/pieces/${side}_${fullName}.svg`;
+  };
+
+  const renderList = list =>
+    list.map(p => `<img class="captured-icon" src="${pieceToIcon(p)}" alt="${p}">`).join("");
+
+  // Under BLACK header: show WHITE pieces eaten by BLACK
+  // Under WHITE header: show BLACK pieces eaten by WHITE
+  window.capturedPlayerEl.innerHTML = renderList(window.capturedAiPieces);     // WHITE pieces eaten by BLACK
+  window.capturedAiEl.innerHTML = renderList(window.capturedPlayerPieces);     // BLACK pieces eaten by WHITE
+};
+
+/* PUBLIC CAPTURE HOOK */
+window.registerCapture = function(movingPiece, capturedPiece) {
+  if (!capturedPiece) return;
+
+  const humanIsWhite = window.playerSide === "white";
+  const movingIsWhite = movingPiece === movingPiece.toUpperCase();
+
+  if (movingIsWhite === humanIsWhite) {
+    // Human captured a piece → goes to capturedPlayerPieces
+    window.capturedPlayerPieces.push(capturedPiece);
+  } else {
+    // AI captured a piece → goes to capturedAiPieces
+    window.capturedAiPieces.push(capturedPiece);
+  }
+
+  window.renderCapturedPanels();
+};
+
 /* RESET BOARD */
 window.resetBoardState = function() {
   window.board = createInitialBoard();
@@ -91,13 +143,16 @@ window.resetBoardState = function() {
   window.lastMoveInfo = null;
   window.pendingPromotionMove = null;
   window.pendingPromotionIsWhite = null;
-  window.moveHistory = [];
   window.redoStack = [];
-  window.capturedPlayerEl.innerHTML = "";
-  window.capturedAiEl.innerHTML = "";
-  window.moveLogEl.innerHTML = "";
 
-  window.winOverlayEl.classList.add("hidden");
+  window.capturedPlayerPieces = [];
+  window.capturedAiPieces = [];
+  if (window.capturedPlayerEl) window.capturedPlayerEl.innerHTML = "";
+  if (window.capturedAiEl) window.capturedAiEl.innerHTML = "";
+
+  if (window.winOverlayEl) {
+    window.winOverlayEl.classList.add("hidden");
+  }
 };
 
 /* FEN EXPORT */

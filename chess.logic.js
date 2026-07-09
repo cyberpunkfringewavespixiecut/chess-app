@@ -16,6 +16,68 @@ function pieceName(t) {
   }
 }
 
+window.generateSAN = function(move) {
+  const { fromX, fromY, toX, toY, special } = move;
+
+  const board = window.board;
+  const piece = board[fromY][fromX];
+  const target = board[toY][toX];
+
+  if (!piece) return "";
+
+  const files = window.files || ["a","b","c","d","e","f","g","h"];
+  const fromFile = files[fromX];
+  const toFile = files[toX];
+  const fromRank = 8 - fromY;
+  const toRank = 8 - toY;
+
+  const isWhite = piece === piece.toUpperCase();
+  const type = piece.toLowerCase();
+
+  // Castling
+  if (special === "castle") {
+    if (toX === 6) return "O-O";
+    if (toX === 2) return "O-O-O";
+  }
+
+  let san = "";
+
+  // Piece letter (no letter for pawn)
+  if (type !== "p") {
+    const map = { k: "K", q: "Q", r: "R", b: "B", n: "N" };
+    san += map[type] || "";
+  }
+
+  // Capture
+  const isCapture = !!target || special === "enpassant";
+  if (type === "p" && isCapture) {
+    san += fromFile;
+  }
+  if (isCapture) {
+    san += "x";
+  }
+
+  // Destination square
+  san += toFile + toRank;
+
+  // Promotion
+  if (type === "p" && (toY === 0 || toY === 7) && move.promoteTo) {
+    const promoMap = { q: "Q", r: "R", b: "B", n: "N" };
+    san += "=" + (promoMap[move.promoteTo.toLowerCase()] || "Q");
+  }
+
+  // Check / mate (simple check detection using inCheck)
+  const sideWhite = isWhite;
+  const kingPos = window.findKing(!sideWhite);
+  if (kingPos && window.squareAttacked(kingPos.x, kingPos.y, sideWhite)) {
+    const oppInMate = window.inCheckmate(!sideWhite);
+    san += oppInMate ? "#" : "+";
+  }
+
+  return san;
+};
+
+
 /* === ATTACK / CHECK (PATCHED WITH TRACKER + CORRECT PAWN LOGIC) === */
 function squareAttacked(x, y, byWhite) {
   const isAttacker = (p) => {
@@ -23,7 +85,6 @@ function squareAttacked(x, y, byWhite) {
     return byWhite ? isWhitePiece(p) : isBlackPiece(p);
   };
 
-  /* === PAWN ATTACKS (FIXED DIRECTION) === */
   for (let ty = 0; ty < 8; ty++) {
     for (let tx = 0; tx < 8; tx++) {
       const p = board[ty][tx];
@@ -33,11 +94,9 @@ function squareAttacked(x, y, byWhite) {
 
       if (p.toLowerCase() === "p") {
         if (attackerIsWhite) {
-          // white pawns attack upward (y - 1)
           if (x === tx + 1 && y === ty - 1) return true;
           if (x === tx - 1 && y === ty - 1) return true;
         } else {
-          // black pawns attack downward (y + 1)
           if (x === tx + 1 && y === ty + 1) return true;
           if (x === tx - 1 && y === ty + 1) return true;
         }
@@ -45,7 +104,6 @@ function squareAttacked(x, y, byWhite) {
     }
   }
 
-  /* === KNIGHT ATTACKS === */
   const knightMoves = [
     [1, 2], [2, 1], [-1, 2], [-2, 1],
     [1, -2], [2, -1], [-1, -2], [-2, -1]
@@ -58,7 +116,6 @@ function squareAttacked(x, y, byWhite) {
     if (p && p.toLowerCase() === "n" && isAttacker(p)) return true;
   }
 
-  /* === BISHOPS / QUEENS (DIAGONALS) === */
   const diagDirs = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
   for (const [dx, dy] of diagDirs) {
     let tx = x + dx;
@@ -75,7 +132,6 @@ function squareAttacked(x, y, byWhite) {
     }
   }
 
-  /* === ROOKS / QUEENS (LINES) === */
   const lineDirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   for (const [dx, dy] of lineDirs) {
     let tx = x + dx;
@@ -92,7 +148,6 @@ function squareAttacked(x, y, byWhite) {
     }
   }
 
-  /* === KING ADJACENCY === */
   const kingSteps = [
     [1, 0], [-1, 0], [0, 1], [0, -1],
     [1, 1], [1, -1], [-1, 1], [-1, -1]
@@ -105,12 +160,9 @@ function squareAttacked(x, y, byWhite) {
     if (p && p.toLowerCase() === "k" && isAttacker(p)) return true;
   }
 
-  /* === TRACKER HOOK (OPTIONAL) === */
-  // If tracker exists, mark attacked squares for analysis
   if (window.moveTracker && window.moveTracker.aiMoves) {
     const lastAi = window.moveTracker.lastAiMove();
     if (lastAi && lastAi.toX === x && lastAi.toY === y) {
-      // You can flag this for UI or debugging
       window.lastAiAttackSquare = { x, y };
     }
   }
@@ -128,7 +180,6 @@ function findKing(white) {
   }
   return null;
 }
-
 
 function inCheck(white) {
   const kingPos = findKing(white);
@@ -161,7 +212,6 @@ function generatePseudoMovesForSquare(x, y) {
 
   const type = piece.toLowerCase();
 
-  /* Pawn */
   if (type === "p") {
     const startRank = isWhite ? 6 : 1;
     const oneY = y + dir;
@@ -190,7 +240,6 @@ function generatePseudoMovesForSquare(x, y) {
     }
   }
 
-  /* Knight */
   if (type === "n") {
     const jumps = [
       [1,2],[2,1],[-1,2],[-2,1],
@@ -207,7 +256,6 @@ function generatePseudoMovesForSquare(x, y) {
     });
   }
 
-  /* Bishop / Rook / Queen */
   if (type === "b" || type === "r" || type === "q") {
     const dirs = [];
     if (type === "b" || type === "q") {
@@ -234,82 +282,70 @@ function generatePseudoMovesForSquare(x, y) {
       }
     });
   }
-/* King */
-if (type === "k") {
-  const steps = [
-    [1,0],[-1,0],[0,1],[0,-1],
-    [1,1],[1,-1],[-1,1],[-1,-1]
-  ];
 
-  // normal king moves: never into attacked squares
-  steps.forEach(([dx,dy]) => {
-    const tx = x + dx;
-    const ty = y + dy;
-    if (tx < 0 || tx > 7 || ty < 0 || ty > 7) return;
+  if (type === "k") {
+    const steps = [
+      [1,0],[-1,0],[0,1],[0,-1],
+      [1,1],[1,-1],[-1,1],[-1,-1]
+    ];
 
-    // HARD: skip any square attacked by opponent
-    if (squareAttacked(tx, ty, !isWhite)) return;
+    steps.forEach(([dx,dy]) => {
+      const tx = x + dx;
+      const ty = y + dy;
+      if (tx < 0 || tx > 7 || ty < 0 || ty > 7) return;
+      if (squareAttacked(tx, ty, !isWhite)) return;
+      const target = board[ty][tx];
+      if (!target || (isWhite && isBlackPiece(target)) || (!isWhite && isWhitePiece(target))) {
+        addMove(x, y, tx, ty);
+      }
+    });
 
-    const target = board[ty][tx];
-    if (!target || (isWhite && isBlackPiece(target)) || (!isWhite && isWhitePiece(target))) {
-      addMove(x, y, tx, ty);
-    }
-  });
+    if (isWhite && y === 7 && x === 4) {
+      if (castlingRights.WK &&
+          !board[7][5] && !board[7][6] &&
+          board[7][7] === "R" &&
+          !squareAttacked(4,7,false) &&
+          !squareAttacked(5,7,false) &&
+          !squareAttacked(6,7,false)) {
+        addMove(x, y, 6, 7, "castle");
+      }
 
-  // WHITE KING CASTLING
-  if (isWhite && y === 7 && x === 4) {
-    // King-side (e1 → g1)
-    if (castlingRights.WK &&
-        !board[7][5] && !board[7][6] &&
-        board[7][7] === "R" &&
-        !squareAttacked(4,7,false) &&
-        !squareAttacked(5,7,false) &&
-        !squareAttacked(6,7,false)) {
-      addMove(x, y, 6, 7, "castle");
-    }
-
-    // Queen-side (e1 → c1)
-    if (castlingRights.WQ &&
-        !board[7][3] && !board[7][2] && !board[7][1] &&
-        board[7][0] === "R" &&
-        !squareAttacked(4,7,false) &&
-        !squareAttacked(3,7,false) &&
-        !squareAttacked(2,7,false)) {
-      addMove(x, y, 2, 7, "castle");
-    }
-  }
-
-  // BLACK KING CASTLING
-  if (!isWhite && y === 0 && x === 4) {
-    // King-side (e8 → g8)
-    if (castlingRights.BK &&
-        !board[0][5] && !board[0][6] &&
-        board[0][7] === "r" &&
-        !squareAttacked(4,0,true) &&
-        !squareAttacked(5,0,true) &&
-        !squareAttacked(6,0,true)) {
-      addMove(x, y, 6, 0, "castle");
+      if (castlingRights.WQ &&
+          !board[7][3] && !board[7][2] && !board[7][1] &&
+          board[7][0] === "R" &&
+          !squareAttacked(4,7,false) &&
+          !squareAttacked(3,7,false) &&
+          !squareAttacked(2,7,false)) {
+        addMove(x, y, 2, 7, "castle");
+      }
     }
 
-    // Queen-side (e8 → c8)
-    if (castlingRights.BQ &&
-        !board[0][3] && !board[0][2] && !board[0][1] &&
-        board[0][0] === "r" &&
-        !squareAttacked(4,0,true) &&
-        !squareAttacked(3,0,true) &&
-        !squareAttacked(2,0,true)) {
-      addMove(x, y, 2, 0, "castle");
+    if (!isWhite && y === 0 && x === 4) {
+      if (castlingRights.BK &&
+          !board[0][5] && !board[0][6] &&
+          board[0][7] === "r" &&
+          !squareAttacked(4,0,true) &&
+          !squareAttacked(5,0,true) &&
+          !squareAttacked(6,0,true)) {
+        addMove(x, y, 6, 0, "castle");
+      }
+
+      if (castlingRights.BQ &&
+          !board[0][3] && !board[0][2] && !board[0][1] &&
+          board[0][0] === "r" &&
+          !squareAttacked(4,0,true) &&
+          !squareAttacked(3,0,true) &&
+          !squareAttacked(2,0,true)) {
+        addMove(x, y, 2, 0, "castle");
+      }
     }
   }
-}
 
   return moves;
 }
-/* === LEGAL MOVES === */
-/* === LEGAL MOVES (PATCHED WITH TRACKER + CORRECT KING SAFETY) === */
-function generateLegalMovesForSquare(x, y) {
 
-  // HARD GUARD: coordinates must be valid
+/* === LEGAL MOVES === */
+function generateLegalMovesForSquare(x, y) {
   if (
     typeof x !== "number" || typeof y !== "number" ||
     x < 0 || x > 7 || y < 0 || y > 7 ||
@@ -323,15 +359,12 @@ function generateLegalMovesForSquare(x, y) {
 
   const isWhite = isWhitePiece(piece);
 
-  // HARD GUARD: only current side moves
   if ((whiteToMove && !isWhite) || (!whiteToMove && isWhite)) return [];
 
   const pseudo = generatePseudoMovesForSquare(x, y);
   const legal = [];
 
   for (const m of pseudo) {
-
-    // HARD GUARD: target coordinates must be valid
     if (
       typeof m.toX !== "number" || typeof m.toY !== "number" ||
       m.toX < 0 || m.toX > 7 || m.toY < 0 || m.toY > 7
@@ -344,13 +377,10 @@ function generateLegalMovesForSquare(x, y) {
     const savedEP = enPassantTarget;
     const savedWTM = whiteToMove;
 
-    // simulate move
     applyMoveInternal(m, { skipHistory: true });
 
-    // king of the side that just moved
     const kingPos = findKing(savedWTM);
 
-    // HARD GUARD: king must exist and be on board
     if (
       !kingPos ||
       typeof kingPos.x !== "number" || typeof kingPos.y !== "number" ||
@@ -364,12 +394,9 @@ function generateLegalMovesForSquare(x, y) {
       continue;
     }
 
-    // is king in check after this move?
     const stillInCheck = squareAttacked(kingPos.x, kingPos.y, !savedWTM);
 
     if (!stillInCheck) {
-
-      // SPECIAL CASTLING CHECK
       if (m.special === "castle") {
         const pathSquares = [];
 
@@ -395,11 +422,6 @@ function generateLegalMovesForSquare(x, y) {
         if (!illegal) legal.push(m);
 
       } else {
-
-        /* ============================================================
-           TRACKER PATCH:
-           player move must be legal response to AI move
-           ============================================================ */
         const playerIsMoving =
           (window.playerSide === "white" && savedWTM === true) ||
           (window.playerSide === "black" && savedWTM === false);
@@ -407,7 +429,6 @@ function generateLegalMovesForSquare(x, y) {
         if (playerIsMoving) {
           const isLegalResponse = window.moveTracker.isplayerMoveLegalResponse(m);
           if (!isLegalResponse) {
-            // skip this move
             board = savedBoard;
             castlingRights = savedCastling;
             enPassantTarget = savedEP;
@@ -420,7 +441,6 @@ function generateLegalMovesForSquare(x, y) {
       }
     }
 
-    // restore state
     board = savedBoard;
     castlingRights = savedCastling;
     enPassantTarget = savedEP;
@@ -430,13 +450,10 @@ function generateLegalMovesForSquare(x, y) {
   return legal;
 }
 
-
-
 /* === INTERNAL MOVE === */
 function applyMoveInternal(move, options = {}) {
   const { fromX, fromY, toX, toY, special } = move;
 
-  // HARD GUARD: coordinates must be valid
   if (
     typeof fromX !== "number" || typeof fromY !== "number" ||
     typeof toX !== "number" || typeof toY !== "number" ||
@@ -449,22 +466,19 @@ function applyMoveInternal(move, options = {}) {
 
   const piece = board[fromY][fromX];
 
-  // HARD GUARD: must be a piece on from-square
   if (!piece) return;
 
-  // move piece
   board[fromY][fromX] = "";
   board[toY][toX] = piece;
 
-  // en passant capture
   if (special === "enpassant") {
     const epY = whiteToMove ? toY + 1 : toY - 1;
+
     if (epY >= 0 && epY <= 7 && board[epY]) {
       board[epY][toX] = "";
     }
   }
 
-  // castling rook move
   if (special === "castle") {
     if (toX === 6) {
       const rookFromX = 7;
@@ -485,14 +499,12 @@ function applyMoveInternal(move, options = {}) {
     }
   }
 
-  // reset en passant
   enPassantTarget = null;
   if (piece.toLowerCase() === "p" && Math.abs(toY - fromY) === 2) {
     const epRank = (fromY + toY) / 2;
     enPassantTarget = indexToCoord(fromX, epRank);
   }
 
-  // castling rights
   if (piece === "K") {
     castlingRights.WK = false;
     castlingRights.WQ = false;
@@ -510,7 +522,6 @@ function applyMoveInternal(move, options = {}) {
     if (fromY === 0 && fromX === 7) castlingRights.BK = false;
   }
 
-  // promotion
   if (piece.toLowerCase() === "p" && (toY === 0 || toY === 7)) {
     let promoteTo = options.promoteTo || "q";
     board[toY][toX] = isWhitePiece(piece)
@@ -544,7 +555,6 @@ function openPromotionOverlay(isWhite) {
   promotionOverlayEl.classList.remove("hidden");
 }
 
-/* FINALIZE PROMOTION */
 function finalizePromotion(type) {
   const move = pendingPromotionMove;
   const isWhite = pendingPromotionIsWhite;
@@ -555,12 +565,10 @@ function finalizePromotion(type) {
 
   applyMove(move, { promoteTo: type });
 }
-
 /* === APPLY MOVE (player OR AI) === */
 function applyMove(move, options = {}) {
   const { fromX, fromY, toX, toY, special } = move;
 
-  // 1) LEGALITY CHECK FROM ENGINE
   const legalMoves = generateLegalMovesForSquare(fromX, fromY);
   const isLegal = legalMoves.some(m =>
     m.toX === toX && m.toY === toY && m.special === special
@@ -573,7 +581,6 @@ function applyMove(move, options = {}) {
   const piece = board[fromY][fromX];
   const target = board[toY][toX];
 
-  // snapshot state
   const prevBoard = cloneBoard(board);
   const prevCastling = { ...castlingRights };
   const prevEP = enPassantTarget;
@@ -581,50 +588,39 @@ function applyMove(move, options = {}) {
 
   let captured = target || null;
 
-  // 2) APPLY MOVE TO BOARD
+  const san = window.generateSAN(
+    { ...move, promoteTo: options.promoteTo || null },
+    prevBoard
+  );
+
   board[fromY][fromX] = "";
   board[toY][toX] = piece;
 
-  // en passant
   if (special === "enpassant") {
     const epY = prevWTM ? toY + 1 : toY - 1;
     captured = board[epY][toX];
     board[epY][toX] = "";
   }
 
-  // castling rook move
   if (special === "castle") {
     if (toX === 6) {
-      const rookFromX = 7;
-      const rookToX = 5;
-      const rookY = fromY;
-      board[rookY][rookFromX] = "";
-      board[rookY][rookToX] = isWhitePiece(piece) ? "R" : "r";
+      board[fromY][7] = "";
+      board[fromY][5] = isWhitePiece(piece) ? "R" : "r";
     } else if (toX === 2) {
-      const rookFromX = 0;
-      const rookToX = 3;
-      const rookY = fromY;
-      board[rookY][rookFromX] = "";
-      board[rookY][rookToX] = isWhitePiece(piece) ? "R" : "r";
+      board[fromY][0] = "";
+      board[fromY][3] = isWhitePiece(piece) ? "R" : "r";
     }
   }
 
-  // en passant target
   enPassantTarget = null;
   if (piece.toLowerCase() === "p" && Math.abs(toY - fromY) === 2) {
     const epRank = (fromY + toY) / 2;
     enPassantTarget = indexToCoord(fromX, epRank);
   }
 
-  // castling rights
-  if (piece === "K") {
-    castlingRights.WK = false;
-    castlingRights.WQ = false;
-  }
-  if (piece === "k") {
-    castlingRights.BK = false;
-    castlingRights.BQ = false;
-  }
+  if (piece === "K") castlingRights.WK = castlingRights.WQ = false;
+  if (piece === "k") castlingRights.BK = castlingRights.BQ = false;
+
   if (piece === "R") {
     if (fromY === 7 && fromX === 0) castlingRights.WQ = false;
     if (fromY === 7 && fromX === 7) castlingRights.WK = false;
@@ -634,13 +630,11 @@ function applyMove(move, options = {}) {
     if (fromY === 0 && fromX === 7) castlingRights.BK = false;
   }
 
-  // promotion
   if (piece.toLowerCase() === "p" && (toY === 0 || toY === 7)) {
     if (!options.promoteTo) {
       pendingPromotionMove = move;
       pendingPromotionIsWhite = isWhitePiece(piece);
 
-      // revert and open overlay
       board = prevBoard;
       castlingRights = prevCastling;
       enPassantTarget = prevEP;
@@ -656,14 +650,12 @@ function applyMove(move, options = {}) {
       : promoteTo.toLowerCase();
   }
 
-  // 3) FINAL KING SAFETY HARD‑LOCK
-  const sideWhite = prevWTM; // side that just moved
+  const sideWhite = prevWTM;
   const kingPos = findKing(sideWhite);
   const kingInCheck =
     !kingPos || squareAttacked(kingPos.x, kingPos.y, !sideWhite);
 
   if (kingInCheck) {
-    // REVERT EVERYTHING, TREAT AS ILLEGAL
     board = prevBoard;
     castlingRights = prevCastling;
     enPassantTarget = prevEP;
@@ -674,20 +666,13 @@ function applyMove(move, options = {}) {
     return;
   }
 
-  // 4) MOVE HISTORY + UI
-  moveHistory.push({
-    move,
-    prevBoard,
-    prevCastling,
-    prevEP,
-    captured,
-    whiteToMoveBefore: prevWTM
-  });
-  redoStack = [];
+  // FINALIZED CAPTURE → UPDATE CAPTURE PANEL
+  if (captured) {
+    window.registerCapture(piece, captured);
+  }
 
   const inChkAfter = inCheck(!sideWhite);
-  let resultType = "normal";
-  if (captured) resultType = "capture";
+  let resultType = captured ? "capture" : "normal";
   if (inChkAfter) resultType = "check";
 
   lastMoveInfo = {
@@ -702,29 +687,15 @@ function applyMove(move, options = {}) {
 
   whiteToMove = !whiteToMove;
 
-  if (captured) {
-    const capturedEl = isWhitePiece(captured)
-      ? capturedPlayerEl
-      : capturedAiEl;
-
-    const isWhiteCap = isWhitePiece(captured);
-    const typeCap = captured.toLowerCase();
-    const sideCap = isWhiteCap ? "white" : "black";
-    const svgPathCap = `chess-data/pieces/${sideCap}_${pieceName(typeCap)}.svg`;
-
-    const imgCap = document.createElement("img");
-    imgCap.className = "captured-piece-img";
-    imgCap.src = svgPathCap;
-    imgCap.onerror = () => {
-      imgCap.style.opacity = "0.6";
-    };
-    capturedEl.appendChild(imgCap);
-  }
-
   logMove(move, piece, captured);
   playMoveSounds(resultType);
 
   renderBoard();
+
+  // FIX: ALWAYS STORE VALID SAN + VALID FEN
+  const fen = window.boardToFEN();
+  window.addMoveToHistory(san, fen);
+  window.renderMoveLog();
 
   const ended = checkGameEnd();
   if (ended) return;
@@ -732,6 +703,8 @@ function applyMove(move, options = {}) {
   sendFenToEngine();
   requestAiMoveIfNeeded();
 }
+
+
 
 
 /* === LOGGING === */
@@ -747,6 +720,7 @@ function logMove(move, piece, captured) {
   moveLogEl.appendChild(li);
   moveLogEl.scrollTop = moveLogEl.scrollHeight;
 }
+
 
 /* === GAME END === */
 function checkGameEnd() {
@@ -786,6 +760,7 @@ function checkGameEnd() {
 
   return false;
 }
+
 
 /* === EXPORT GLOBALS === */
 window.squareAttacked = squareAttacked;

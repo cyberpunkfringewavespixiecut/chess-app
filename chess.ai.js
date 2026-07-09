@@ -49,8 +49,22 @@ function applyEngineMove(uciMove) {
   const from = window.coordToIndex(fromFile + fromRank);
   const to = window.coordToIndex(toFile + toRank);
 
-  const moves = window.generateLegalMovesForSquare(from.x, from.y);
-  let move = moves.find(m => m.toX === to.x && m.toY === to.y);
+  const legalMoves = window.generateLegalMovesForSquare(from.x, from.y);
+
+  let move = legalMoves.find(m => m.toX === to.x && m.toY === to.y);
+
+  if (!move) {
+    // CASTLING FIX
+    if (fromFile === "e") {
+      if (toFile === "g") {
+        move = legalMoves.find(m => m.special === "castle" && m.toX === 6);
+      }
+      if (toFile === "c") {
+        move = legalMoves.find(m => m.special === "castle" && m.toX === 2);
+      }
+    }
+  }
+
   if (!move) return;
 
   if (uciMove.length === 5) {
@@ -64,12 +78,8 @@ function applyEngineMove(uciMove) {
     }
   }
 
-  // CHECK GAME END BEFORE ANY FURTHER ACTION
   const ended = window.checkGameEnd();
-  if (ended) {
-    // overlay + text handled inside chess.logic.js
-    return;
-  }
+  if (ended) return;
 
   window.renderBoard();
   window.sendFenToEngine();

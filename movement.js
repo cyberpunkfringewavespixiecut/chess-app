@@ -1,9 +1,10 @@
 /* movement.js — render, click, drag, promotion, move history glow, tint, AO depth */
 
+/* GLOBAL VISUAL FLAGS */
 window.glowEnabled = window.glowEnabled ?? true;
 window.tintEnabled = window.tintEnabled ?? true;
 
-/* AO (Ambient Occlusion) */
+/* AO (Ambient Occlusion / Depth) */
 window.depthEnabled = window.depthEnabled ?? false;
 window.depthIntensity = window.depthIntensity ?? 0.5;
 window.depthWhiteColor = window.depthWhiteColor ?? "#d09090";
@@ -31,7 +32,6 @@ function generateKingLegalMovesUI(x, y) {
 
   const isWhite = window.isWhitePiece(piece);
 
-  // only allow current side to move
   if ((window.whiteToMove && !isWhite) || (!window.whiteToMove && isWhite)) return [];
 
   const moves = [];
@@ -40,7 +40,6 @@ function generateKingLegalMovesUI(x, y) {
     if (toX < 0 || toX > 7 || toY < 0 || toY > 7) return;
     const target = window.board[toY][toX];
 
-    // destination must NOT be attacked by opponent
     if (window.squareAttacked(toX, toY, !isWhite)) return;
 
     if (special === "castle") {
@@ -57,7 +56,6 @@ function generateKingLegalMovesUI(x, y) {
     }
   };
 
-  // normal king steps
   const steps = [
     [1,0],[-1,0],[0,1],[0,-1],
     [1,1],[1,-1],[-1,1],[-1,-1]
@@ -68,12 +66,9 @@ function generateKingLegalMovesUI(x, y) {
     addMove(tx, ty);
   });
 
-  // castling (UI-side check, matching engine rights)
   const cr = window.castlingRights || {};
 
-  // WHITE KING CASTLING
   if (isWhite && y === 7 && x === 4) {
-    // King-side (e1 → g1)
     if (cr.WK &&
         !window.board[7][5] && !window.board[7][6] &&
         window.board[7][7] === "R" &&
@@ -83,7 +78,6 @@ function generateKingLegalMovesUI(x, y) {
       addMove(6, 7, "castle");
     }
 
-    // Queen-side (e1 → c1)
     if (cr.WQ &&
         !window.board[7][3] && !window.board[7][2] && !window.board[7][1] &&
         window.board[7][0] === "R" &&
@@ -94,9 +88,7 @@ function generateKingLegalMovesUI(x, y) {
     }
   }
 
-  // BLACK KING CASTLING
   if (!isWhite && y === 0 && x === 4) {
-    // King-side (e8 → g8)
     if (cr.BK &&
         !window.board[0][5] && !window.board[0][6] &&
         window.board[0][7] === "r" &&
@@ -106,7 +98,6 @@ function generateKingLegalMovesUI(x, y) {
       addMove(6, 0, "castle");
     }
 
-    // Queen-side (e8 → c8)
     if (cr.BQ &&
         !window.board[0][3] && !window.board[0][2] && !window.board[0][1] &&
         window.board[0][0] === "r" &&
@@ -155,6 +146,11 @@ function renderPiece(piece, square) {
   };
 
   img.addEventListener("dragstart", (e) => {
+    if (window.historyLocked) {
+      e.preventDefault();
+      return;
+    }
+
     e.dataTransfer.effectAllowed = "move";
     onPieceDragStart(e, square);
 
@@ -247,8 +243,13 @@ function renderBoard() {
   }
 }
 
+/* EXPOSE RENDER BOARD GLOBALLY FOR moves.js, etc. */
+window.renderBoard = renderBoard;
+
 /* CLICK HANDLER */
 function onSquareClick(e) {
+  if (window.historyLocked) return;
+
   const x = parseInt(e.currentTarget.dataset.x, 10);
   const y = parseInt(e.currentTarget.dataset.y, 10);
   const piece = window.board[y][x];
@@ -277,7 +278,7 @@ function onSquareClick(e) {
       const ended = window.checkGameEnd();
       if (ended) return;
 
-      renderBoard();
+      window.renderBoard();
       window.sendFenToEngine();
       window.requestAiMoveIfNeeded();
       return;
@@ -285,7 +286,7 @@ function onSquareClick(e) {
 
     window.selectedSquare = null;
     window.legalMovesCache = [];
-    renderBoard();
+    window.renderBoard();
     return;
   }
 
@@ -298,19 +299,22 @@ function onSquareClick(e) {
 
   let moves;
   if (piece.toLowerCase() === "k") {
-    // use UI-side king generator (hard-locked by squareAttacked)
     moves = generateKingLegalMovesUI(x, y);
   } else {
-    // other pieces use engine legal generator
     moves = window.generateLegalMovesForSquare(x, y);
   }
 
   window.legalMovesCache = moves;
-  renderBoard();
+  window.renderBoard();
 }
 
 /* DRAG START */
 function onPieceDragStart(e, square) {
+  if (window.historyLocked) {
+    e.preventDefault();
+    return;
+  }
+
   const x = parseInt(square.dataset.x, 10);
   const y = parseInt(square.dataset.y, 10);
   const piece = window.board[y][x];
@@ -351,7 +355,7 @@ function onPieceDragEnd(square) {
   dragSource = null;
   window.selectedSquare = null;
   window.legalMovesCache = [];
-  renderBoard();
+  window.renderBoard();
 }
 
 /* DRAG OVER */
@@ -374,39 +378,48 @@ function onSquareDrop(e) {
   e.dataTransfer.dropEffect = "move";
   e.currentTarget.classList.remove("drag-over");
   if (!dragSource) return;
+  if (window.historyLocked) return;
 
   const toX = parseInt(e.currentTarget.dataset.x, 10);
   const toY = parseInt(e.currentTarget.dataset.y, 10);
 
-  const move = window.legalMovesCache.find(m => m.toX === toX && m.toY === toY);
-  if (move) {
-    const fromPiece = window.board[dragSource.y][dragSource.x];
+  const specialMove = window.legalMovesCache.find(m => m.toX === toX && m.toY === toY)?.special || null;
 
-    if (
-      fromPiece.toLowerCase() === "p" &&
-      (move.toY === 0 || move.toY === 7) &&
-      window.playerSide !== "none"
-    ) {
-      const promoteTo = prompt("Promote to (q,r,b,n):", "q") || "q";
-      window.applyMove(move, { promoteTo });
-    } else {
-      window.applyMove(move);
-    }
+  const move = {
+    fromX: dragSource.x,
+    fromY: dragSource.y,
+    toX,
+    toY,
+    special: specialMove
+  };
 
-    window.selectedSquare = null;
-    window.legalMovesCache = [];
-    dragSource = null;
+  const fromPiece = window.board[dragSource.y][dragSource.x];
 
-    const ended = window.checkGameEnd();
-    if (ended) return;
-
-    renderBoard();
-    window.sendFenToEngine();
-    window.requestAiMoveIfNeeded();
+  if (
+    fromPiece &&
+    fromPiece.toLowerCase() === "p" &&
+    (move.toY === 0 || move.toY === 7) &&
+    window.playerSide !== "none"
+  ) {
+    const promoteTo = prompt("Promote to (q,r,b,n):", "q") || "q";
+    window.applyMove(move, { promoteTo });
+  } else {
+    window.applyMove(move);
   }
+
+  window.selectedSquare = null;
+  window.legalMovesCache = [];
+  dragSource = null;
+
+  const ended = window.checkGameEnd();
+  if (ended) return;
+
+  window.renderBoard();
+  window.sendFenToEngine();
+  window.requestAiMoveIfNeeded();
 }
 
 /* INIT */
 window.addEventListener("load", () => {
-  renderBoard();
+  window.renderBoard();
 });
