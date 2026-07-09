@@ -1,4 +1,4 @@
-/* chess.ai.js — Stockfish engine, AI move (win handled in chess.logic.js) */
+/* chess.ai.js — Stockfish engine, AI move */
 
 const engine = new Worker("chess-data/engine/stockfish.js");
 
