@@ -746,7 +746,6 @@ function logMove(move, piece, captured) {
   moveLogEl.scrollTop = moveLogEl.scrollHeight;
 }
 
-
 /* === GAME END === */
 function checkGameEnd() {
   const sideWhite = whiteToMove;
