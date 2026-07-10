@@ -593,7 +593,7 @@ function applyMove(move, options = {}) {
 
   let captured = target || null;
 
-  // SAN FROM PREV BOARD (BEFORE ANY CHANGES)
+  // SAN FROM PREV BOARD
   const san = window.generateSAN(
     { ...move, promoteTo: options.promoteTo || null },
     prevBoard
