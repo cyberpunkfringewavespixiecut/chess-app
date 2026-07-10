@@ -1,7 +1,7 @@
-/* moves.js — clickable move history + FEN rewind system */
+/* moves.js — clickable move history + FEN rewind + icons + arrows */
 
 window.moveLogEl = document.getElementById("move-log");
-window.currentHistoryIndex = null;     // highlighted index
+window.currentHistoryIndex = null; // highlighted index
 
 const pieceSVG = {
   w: {
@@ -29,23 +29,17 @@ function formatMoveWithIcon(san, isWhite) {
   return `${img} ${cleaned}`;
 }
 
-window.addMoveToHistory = function(san, fen, isWhiteMove) {
-  const display = formatMoveWithIcon(san, isWhiteMove);
-  window.moveHistory.push({ san: display, fen });
-
-  renderMoveLog();
-
-  // new move → live mode → clear highlight
-  window.currentHistoryIndex = null;
-  window.highlightMoveInLog(null);
-};
-
+/* RENDER MOVE LOG FROM window.moveHistory (full objects) */
 window.renderMoveLog = function() {
   window.moveLogEl.innerHTML = "";
 
   window.moveHistory.forEach((entry, index) => {
     const li = document.createElement("li");
-    li.innerHTML = entry.san;
+
+    const isWhiteMove = entry.whiteToMoveBefore;
+    const displaySAN = formatMoveWithIcon(entry.san, isWhiteMove);
+
+    li.innerHTML = displaySAN;
     li.dataset.index = index;
     li.addEventListener("click", () => window.jumpToMove(index));
     window.moveLogEl.appendChild(li);
@@ -56,13 +50,13 @@ window.renderMoveLog = function() {
   }
 };
 
+/* JUMP TO MOVE BY FEN SNAPSHOT */
 window.jumpToMove = function(index) {
   const entry = window.moveHistory[index];
   if (!entry) return;
 
   window.currentHistoryIndex = index;
 
-  // load board snapshot
   window.board = createInitialBoard();
   window.whiteToMove = true;
   window.castlingRights = { WK: true, WQ: true, BK: true, BQ: true };
@@ -79,6 +73,7 @@ window.jumpToMove = function(index) {
   window.highlightMoveInLog(index);
 };
 
+/* FEN → BOARD LOADER */
 window.loadFEN = function(fen) {
   const parts = fen.split(" ");
   const rows = parts[0].split("/");
@@ -114,6 +109,7 @@ window.loadFEN = function(fen) {
   window.enPassantTarget = parts[3] !== "-" ? parts[3] : null;
 };
 
+/* HIGHLIGHT IN MOVE LOG */
 window.highlightMoveInLog = function(index) {
   const items = window.moveLogEl.querySelectorAll("li");
 
@@ -127,6 +123,7 @@ window.highlightMoveInLog = function(index) {
   }
 };
 
+/* ARROW KEY NAVIGATION (UP/DOWN) */
 window.addEventListener("keydown", (e) => {
   if (!window.moveHistory.length) return;
   if (window.currentHistoryIndex === null) return;
@@ -146,7 +143,6 @@ window.addEventListener("keydown", (e) => {
       window.currentHistoryIndex++;
       window.jumpToMove(window.currentHistoryIndex);
     } else {
-      // stick highlight at bottom
       window.currentHistoryIndex = lastIndex;
       window.highlightMoveInLog(lastIndex);
     }
