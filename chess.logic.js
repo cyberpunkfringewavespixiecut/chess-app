@@ -565,22 +565,27 @@ function finalizePromotion(type) {
   applyMove(move, { promoteTo: type });
 }
 
-/* === APPLY MOVE (player OR AI) === */
+/* === APPLY MOVE === */
 function applyMove(move, options = {}) {
   const { fromX, fromY, toX, toY, special } = move;
+
+  // DETECT CASTLING
+  const piece = board[fromY][fromX];
+  const isCastle =
+    piece && piece.toLowerCase() === "k" && Math.abs(toX - fromX) === 2;
 
   const legalMoves = generateLegalMovesForSquare(fromX, fromY);
   const isLegal = legalMoves.some(m =>
     m.toX === toX && m.toY === toY && m.special === special
   );
-  if (!isLegal && !options.promoteTo) {
+  if (!isLegal && !options.promoteTo && !isCastle) {
     playMoveSounds("illegal");
     return;
   }
 
-  const piece = board[fromY][fromX];
   const target = board[toY][toX];
 
+  // SNAPSHOT BEFORE MOVE
   const prevBoard = cloneBoard(board);
   const prevCastling = { ...castlingRights };
   const prevEP = enPassantTarget;
@@ -588,36 +593,44 @@ function applyMove(move, options = {}) {
 
   let captured = target || null;
 
+  // SAN FROM PREV BOARD (BEFORE ANY CHANGES)
   const san = window.generateSAN(
     { ...move, promoteTo: options.promoteTo || null },
     prevBoard
   );
 
+  // APPLY MOVE TO BOARD
   board[fromY][fromX] = "";
   board[toY][toX] = piece;
 
+  // EN PASSANT
   if (special === "enpassant") {
     const epY = prevWTM ? toY + 1 : toY - 1;
     captured = board[epY][toX];
     board[epY][toX] = "";
   }
 
-  if (special === "castle") {
-    if (toX === 6) {
+  // CASTLING ROOK MOVE (BOTH SIDES, BASED ONLY ON KING MOVE)
+  if (isCastle) {
+    if (toX > fromX) {
+      // king-side (right): king e→g, rook h→f
       board[fromY][7] = "";
       board[fromY][5] = isWhitePiece(piece) ? "R" : "r";
-    } else if (toX === 2) {
+    } else {
+      // queen-side (left): king e→c, rook a→d
       board[fromY][0] = "";
       board[fromY][3] = isWhitePiece(piece) ? "R" : "r";
     }
   }
 
+  // EN PASSANT TARGET
   enPassantTarget = null;
   if (piece.toLowerCase() === "p" && Math.abs(toY - fromY) === 2) {
     const epRank = (fromY + toY) / 2;
     enPassantTarget = indexToCoord(fromX, epRank);
   }
 
+  // CASTLING RIGHTS UPDATE
   if (piece === "K") castlingRights.WK = castlingRights.WQ = false;
   if (piece === "k") castlingRights.BK = castlingRights.BQ = false;
 
@@ -630,6 +643,7 @@ function applyMove(move, options = {}) {
     if (fromY === 0 && fromX === 7) castlingRights.BK = false;
   }
 
+  // PROMOTION
   if (piece.toLowerCase() === "p" && (toY === 0 || toY === 7)) {
     if (!options.promoteTo) {
       pendingPromotionMove = move;
@@ -666,6 +680,7 @@ function applyMove(move, options = {}) {
     return;
   }
 
+  // REGISTER CAPTURE FOR UI
   if (captured) {
     window.registerCapture(piece, captured);
   }
@@ -693,7 +708,7 @@ function applyMove(move, options = {}) {
 
   const fen = window.boardToFEN();
 
-  // store full history for undo/redo + SAN/FEN for log + move-log UI
+  // HISTORY ENTRY
   window.moveHistory.push({
     prevBoard,
     prevCastling,
@@ -705,10 +720,10 @@ function applyMove(move, options = {}) {
     fen
   });
 
-  // update move-log UI (moves.js uses .san and .fen)
   window.renderMoveLog();
   window.currentHistoryIndex = null;
   window.highlightMoveInLog(null);
+  window.rebuildCapturedUI();
 
   const ended = checkGameEnd();
   if (ended) return;
@@ -716,6 +731,7 @@ function applyMove(move, options = {}) {
   sendFenToEngine();
   requestAiMoveIfNeeded();
 }
+
 
 /* === LOGGING === */
 function logMove(move, piece, captured) {
