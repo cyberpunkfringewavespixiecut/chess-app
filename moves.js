@@ -1,7 +1,7 @@
 /* moves.js — clickable move history + FEN rewind + icons + arrows */
 
 window.moveLogEl = document.getElementById("move-log");
-window.currentHistoryIndex = null; // highlighted index
+window.currentHistoryIndex = null;
 
 const pieceSVG = {
   w: {
