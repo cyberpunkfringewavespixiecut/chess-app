@@ -77,7 +77,6 @@ window.generateSAN = function(move) {
   return san;
 };
 
-
 /* === ATTACK / CHECK (PATCHED WITH TRACKER + CORRECT PAWN LOGIC) === */
 function squareAttacked(x, y, byWhite) {
   const isAttacker = (p) => {
@@ -157,7 +156,9 @@ function squareAttacked(x, y, byWhite) {
     const ty = y + dy;
     if (tx < 0 || tx >= 8 || ty < 0 || ty >= 8) continue;
     const p = board[ty][tx];
-    if (p && p.toLowerCase() === "k" && isAttacker(p)) return true;
+    if (p && p.toLowerCase() === "k" && isAttacker(p)) {
+      if (Math.abs(tx - x) <= 1 && Math.abs(ty - y) <= 1) return true;
+    }
   }
 
   if (window.moveTracker && window.moveTracker.aiMoves) {
@@ -169,6 +170,7 @@ function squareAttacked(x, y, byWhite) {
 
   return false;
 }
+
 
 /* === FIND KING === */
 function findKing(white) {
@@ -344,6 +346,7 @@ function generatePseudoMovesForSquare(x, y) {
   return moves;
 }
 
+
 /* === LEGAL MOVES === */
 function generateLegalMovesForSquare(x, y) {
   if (
@@ -401,8 +404,10 @@ function generateLegalMovesForSquare(x, y) {
         const pathSquares = [];
 
         if (m.toX === 6) {
+          // king-side (right)
           pathSquares.push({ x: 5, y: kingPos.y }, { x: 6, y: kingPos.y });
         } else if (m.toX === 2) {
+          // queen-side (left)
           pathSquares.push({ x: 3, y: kingPos.y }, { x: 2, y: kingPos.y });
         }
 
@@ -419,7 +424,15 @@ function generateLegalMovesForSquare(x, y) {
           }
         }
 
-        if (!illegal) legal.push(m);
+        if (!illegal) {
+          if (savedWTM) {
+            if (m.toX === 6 && savedCastling.WK) legal.push(m);
+            else if (m.toX === 2 && savedCastling.WQ) legal.push(m);
+          } else {
+            if (m.toX === 6 && savedCastling.BK) legal.push(m);
+            else if (m.toX === 2 && savedCastling.BQ) legal.push(m);
+          }
+        }
 
       } else {
         const playerIsMoving =
@@ -449,6 +462,7 @@ function generateLegalMovesForSquare(x, y) {
 
   return legal;
 }
+
 
 /* === INTERNAL MOVE === */
 function applyMoveInternal(move, options = {}) {
@@ -576,9 +590,11 @@ function applyMove(move, options = {}) {
 
   const legalMoves = generateLegalMovesForSquare(fromX, fromY);
   const isLegal = legalMoves.some(m =>
-    m.toX === toX && m.toY === toY && m.special === special
+    m.toX === toX &&
+    m.toY === toY &&
+    (m.special === special || m.special === "castle")
   );
-  if (!isLegal && !options.promoteTo && !isCastle) {
+  if (!isLegal && !options.promoteTo) {
     playMoveSounds("illegal");
     return;
   }
@@ -613,11 +629,9 @@ function applyMove(move, options = {}) {
   // CASTLING ROOK MOVE (BOTH SIDES, BASED ONLY ON KING MOVE)
   if (isCastle) {
     if (toX > fromX) {
-      // king-side (right): king e→g, rook h→f
       board[fromY][7] = "";
       board[fromY][5] = isWhitePiece(piece) ? "R" : "r";
     } else {
-      // queen-side (left): king e→c, rook a→d
       board[fromY][0] = "";
       board[fromY][3] = isWhitePiece(piece) ? "R" : "r";
     }
@@ -731,6 +745,7 @@ function applyMove(move, options = {}) {
   sendFenToEngine();
   requestAiMoveIfNeeded();
 }
+
 
 /* === LOGGING === */
 function logMove(move, piece, captured) {

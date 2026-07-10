@@ -27,14 +27,33 @@ function updateBoardOrientation() {
 function resetBoardForAiGame() {
   setStartingBoard();
 
+  // core game state
   window.whiteToMove = true;
   window.selectedSquare = null;
   window.legalMovesCache = [];
   window.lastMoveInfo = null;
   window.previewSquare = null;
   window.previewMoves = [];
-  if (window.moveHistory) window.moveHistory.length = 0;
+  window.enPassantTarget = null;
 
+  // castling rights fully reset
+  window.castlingRights = {
+    WK: true,
+    WQ: true,
+    BK: true,
+    BQ: true
+  };
+
+  // move history / tracker reset
+  if (!window.moveHistory) window.moveHistory = [];
+  window.moveHistory.length = 0;
+  window.currentHistoryIndex = null;
+
+  if (window.moveTracker && typeof window.moveTracker.reset === "function") {
+    window.moveTracker.reset();
+  }
+
+  // captured pieces UI reset
   const moveLog = document.getElementById("move-log");
   const capturedPlayer = document.getElementById("captured-player");
   const capturedAi = document.getElementById("captured-ai");
@@ -43,7 +62,12 @@ function resetBoardForAiGame() {
   if (capturedPlayer) capturedPlayer.innerHTML = "";
   if (capturedAi) capturedAi.innerHTML = "";
 
+  if (typeof window.rebuildCapturedUI === "function") {
+    window.rebuildCapturedUI();
+  }
+
   renderBoard();
+
   if (typeof sendFenToEngine === "function") {
     sendFenToEngine();
   }
@@ -58,7 +82,6 @@ function wireWinOverlayClose() {
     });
   }
 }
-
 
 window.addEventListener("load", () => {
   const aiBtn = document.getElementById("ai-btn");
