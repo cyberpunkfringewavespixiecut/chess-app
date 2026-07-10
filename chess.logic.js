@@ -732,7 +732,6 @@ function applyMove(move, options = {}) {
   requestAiMoveIfNeeded();
 }
 
-
 /* === LOGGING === */
 function logMove(move, piece, captured) {
   const li = document.createElement("li");
